@@ -1,0 +1,29 @@
+<policies>
+  <inbound>
+    <set-header name="x-correlation-id" exists-action="skip">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+    <set-header name="x-apim-gateway" exists-action="override">
+      <value>apim-demo</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <forward-request />
+  </backend>
+  <outbound>
+    <set-header name="x-powered-by" exists-action="override">
+      <value>Azure API Management</value>
+    </set-header>
+    <set-header name="x-correlation-id" exists-action="skip">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+  </outbound>
+  <on-error>
+    <set-header name="Content-Type" exists-action="override">
+      <value>application/json</value>
+    </set-header>
+    <set-body>@{
+      return "{\"message\":\"" + context.LastError.Message + "\",\"reason\":\"" + context.LastError.Reason + "\",\"requestId\":\"" + context.RequestId + "\"}";
+    }</set-body>
+  </on-error>
+</policies>

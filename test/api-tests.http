@@ -1,0 +1,188 @@
+### ============================================================
+### APIM Demo - REST Client Test File
+### ============================================================
+### Prerequisites:
+###   1. Install "REST Client" extension (humao.rest-client)
+###   2. Get tokens by running the "Get Tokens" requests below first
+### ============================================================
+
+### Variables
+@gatewayUrl = https://<YOUR_APIM_NAME>.azure-api.net
+@subscriptionKey = <YOUR_SUBSCRIPTION_KEY>
+@tenantId = <YOUR_TENANT_ID>
+@apiAudience = api://<YOUR_API_APP_ID>
+@adminClientId = <YOUR_ADMIN_CLIENT_ID>
+@adminClientSecret = <YOUR_ADMIN_CLIENT_SECRET>
+@userClientId = <YOUR_USER_CLIENT_ID>
+@userClientSecret = <YOUR_USER_CLIENT_SECRET>
+
+### Direct backend URLs (no APIM)
+@functionUrl = https://<YOUR_FUNCTION_APP>.azurewebsites.net
+@webApiUrl = https://<YOUR_WEB_APP>.azurewebsites.net
+
+
+### ============================================================
+### 1. GET TOKENS (run these first)
+### ============================================================
+
+### Get Admin Token
+# @name adminLogin
+POST https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id={{adminClientId}}&client_secret={{adminClientSecret}}&scope={{apiAudience}}/.default&grant_type=client_credentials
+
+###
+
+### Get User Token
+# @name userLogin
+POST https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id={{userClientId}}&client_secret={{userClientSecret}}&scope={{apiAudience}}/.default&grant_type=client_credentials
+
+###
+
+### Store tokens from responses above
+@adminToken = {{adminLogin.response.body.access_token}}
+@userToken = {{userLogin.response.body.access_token}}
+
+
+### ============================================================
+### 2. DIRECT BACKEND TESTS (no auth, no APIM)
+### ============================================================
+
+### Function App - Hello
+GET {{functionUrl}}/api/hello
+
+###
+
+### Function App - Orders
+GET {{functionUrl}}/api/orders
+
+###
+
+### Web API - Hello
+GET {{webApiUrl}}/hello
+
+###
+
+### Web API - Products
+GET {{webApiUrl}}/products
+
+###
+
+### Web API - Swagger
+GET {{webApiUrl}}/swagger/v1/swagger.json
+
+###
+
+
+### ============================================================
+### 3. APIM - Function API (with Admin token)
+### ============================================================
+
+### Function Hello via APIM
+GET {{gatewayUrl}}/function/hello
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### Function Orders via APIM
+GET {{gatewayUrl}}/function/orders
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+
+### ============================================================
+### 4. APIM - Web API v1 (with Admin token)
+### ============================================================
+
+### Web API v1 - Hello
+GET {{gatewayUrl}}/web/v1/hello
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### Web API v1 - Products
+GET {{gatewayUrl}}/web/v1/products
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+
+### ============================================================
+### 5. APIM - Web API v2 (with Admin token)
+### ============================================================
+
+### Web API v2 - Products
+GET {{gatewayUrl}}/web/v2/products
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+
+### ============================================================
+### 6. APIM - Admin Endpoint (Role-Based Access)
+### ============================================================
+
+### Admin Health - with Admin token (expect 200)
+GET {{gatewayUrl}}/web/v1/admin/health
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### Admin Health - with User token (expect 403 Forbidden)
+GET {{gatewayUrl}}/web/v1/admin/health
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{userToken}}
+
+###
+
+
+### ============================================================
+### 7. APIM - Legacy API (on-prem VM backend)
+### ============================================================
+
+### Legacy Customers (requires VM to be running)
+GET {{gatewayUrl}}/legacy/customers
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### Legacy Status (requires VM to be running)
+GET {{gatewayUrl}}/legacy/status
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+
+### ============================================================
+### 8. ERROR CASES
+### ============================================================
+
+### No subscription key (expect 401)
+GET {{gatewayUrl}}/function/hello
+Authorization: Bearer {{adminToken}}
+
+###
+
+### No auth token (expect 401 - JWT validation fails)
+GET {{gatewayUrl}}/function/hello
+Ocp-Apim-Subscription-Key: {{subscriptionKey}}
+
+###
+
+### No credentials at all (expect 401)
+GET {{gatewayUrl}}/function/hello
+
+###

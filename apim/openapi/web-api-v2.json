@@ -1,0 +1,19 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "web-api",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/products": {
+      "get": {
+        "operationId": "getProductsV2",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

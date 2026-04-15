@@ -1,0 +1,80 @@
+{
+  "info": {
+    "name": "APIM Demo Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Function Hello",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/function/hello"
+      }
+    },
+    {
+      "name": "Web Admin Health (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/v1/web/admin/health"
+      }
+    },
+    {
+      "name": "Web Admin Health (User - expect 403)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{userToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/v1/web/admin/health"
+      }
+    },
+    {
+      "name": "Legacy Customers",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/legacy/customers"
+      }
+    },
+    {
+      "name": "Web v1 Products",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/v1/web/products"
+      }
+    },
+    {
+      "name": "Web v2 Products",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{gatewayUrl}}/v2/web/products"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "gatewayUrl", "value": "https://your-apim-name.azure-api.net" },
+    { "key": "subscriptionKey", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "userToken", "value": "" }
+  ]
+}

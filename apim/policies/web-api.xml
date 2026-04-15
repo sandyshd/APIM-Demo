@@ -1,0 +1,44 @@
+<policies>
+  <inbound>
+    <base />
+    <cors allow-credentials="false">
+      <allowed-origins>
+        <origin>{{allowed-origin}}</origin>
+      </allowed-origins>
+      <allowed-methods>
+        <method>GET</method>
+      </allowed-methods>
+      <allowed-headers>
+        <header>*</header>
+      </allowed-headers>
+    </cors>
+    <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" output-token-variable-name="jwt">
+      <openid-config url="https://login.microsoftonline.com/{{aad-tenant-id}}/.well-known/openid-configuration" />
+      <audiences>
+        <audience>{{aad-audience}}</audience>
+      </audiences>
+    </validate-jwt>
+    <set-header name="x-apim-caller-oid" exists-action="override">
+      <value>@(((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("oid", "unknown"))</value>
+    </set-header>
+    <set-header name="x-apim-caller-roles" exists-action="override">
+      <value>@(String.Join(",", ((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("roles", "none")))</value>
+    </set-header>
+    <choose>
+      <when condition="@(context.Request.OriginalUrl.Path.ToLower().EndsWith(&quot;/items&quot;))">
+        <rewrite-uri template="/products" />
+      </when>
+    </choose>
+    <rate-limit-by-key calls="90" renewal-period="60" counter-key="@(context.Subscription?.Key ?? context.Request.IpAddress)" />
+    <set-backend-service base-url="{{web-backend-url}}" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

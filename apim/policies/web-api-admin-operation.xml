@@ -1,0 +1,31 @@
+<policies>
+  <inbound>
+    <base />
+    <choose>
+      <when condition="@(!((Jwt)context.Variables[&quot;jwt&quot;]).Claims.ContainsKey(&quot;roles&quot;) || !((Jwt)context.Variables[&quot;jwt&quot;]).Claims[&quot;roles&quot;].Contains(&quot;Admin&quot;))">
+        <return-response>
+          <set-status code="403" reason="Forbidden" />
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <set-body>{"message":"Forbidden. Admin role required."}</set-body>
+        </return-response>
+      </when>
+    </choose>
+    <set-header name="x-apim-admin-check" exists-action="override">
+      <value>passed</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <set-header name="x-admin-policy" exists-action="override">
+      <value>strict</value>
+    </set-header>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
