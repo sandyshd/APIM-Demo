@@ -30,7 +30,6 @@
       </when>
     </choose>
     <rate-limit-by-key calls="90" renewal-period="60" counter-key="@(context.Subscription?.Key ?? context.Request.IpAddress)" />
-    <set-backend-service base-url="{{web-backend-url}}" />
   </inbound>
   <backend>
     <base />

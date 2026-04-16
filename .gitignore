@@ -5,4 +5,5 @@ out/
 *.user
 scripts/env.local
 scripts/.generated.env
+local.settings.json
 test/Test.txt

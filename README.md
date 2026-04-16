@@ -344,6 +344,26 @@ This writes generated values to `scripts/.generated.env`.
   - `GET /web/v1/admin/health` — Health check (requires `Admin` role)
   - `GET /web/v2/products` — Products (v2 format: `sku`, `name`, `unitPrice`, `category`)
 
+  **v1 vs v2 response comparison:**
+
+  `GET /web/v1/products` returns:
+  ```json
+  [
+    { "id": "P100", "name": "Coffee Mug", "price": 12.99 },
+    { "id": "P101", "name": "Notebook", "price": 8.49 },
+    { "id": "P102", "name": "Headphones", "price": 59.00 }
+  ]
+  ```
+
+  `GET /web/v2/products` returns:
+  ```json
+  [
+    { "sku": "P100", "name": "Coffee Mug", "unitPrice": 12.99, "category": "Home" },
+    { "sku": "P101", "name": "Notebook", "unitPrice": 8.49, "category": "Office" },
+    { "sku": "P102", "name": "Headphones", "unitPrice": 59.00, "category": "Electronics" }
+  ]
+  ```
+
 - **Legacy API** (`/legacy/*`) — requires VM to be running
   - `GET /legacy/customers` — Sample customer list
   - `GET /legacy/status` — Service status
