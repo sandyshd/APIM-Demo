@@ -15,6 +15,7 @@ $functionPolicyPath = Join-Path $PSScriptRoot "../apim/policies/function-api.xml
 $webPolicyPath = Join-Path $PSScriptRoot "../apim/policies/web-api.xml"
 $legacyPolicyPath = Join-Path $PSScriptRoot "../apim/policies/legacy-api.xml"
 $adminPolicyPath = Join-Path $PSScriptRoot "../apim/policies/web-api-admin-operation.xml"
+$functionRev2PolicyPath = Join-Path $PSScriptRoot "../apim/policies/function-api-rev2.xml"
 
 $functionBackendUrl = "https://$($env:FUNCTION_APP).azurewebsites.net/api"
 $webBackendUrl = "https://$($env:WEB_APP).azurewebsites.net"
@@ -184,6 +185,28 @@ foreach ($entry in $apiPolicies.GetEnumerator()) {
 
 # Operation-level policy for admin health
 Put-ApimResource -Path "apis/web-api/operations/getAdminHealth/policies/policy" -Body @{ properties = @{ value = $adminPolicy; format = "rawxml" } }
+
+# ─── Revisions (non-breaking changes) ────────────────────────────────────────
+Write-Host "Creating Function API revision 2 (adds outbound headers)..."
+$functionRev2Policy = Get-Content $functionRev2PolicyPath -Raw
+$functionSpec = Get-Content $functionOpenApi -Raw
+
+# Create revision 2 of Function API with operations from OpenAPI spec
+Put-ApimResource -Path "apis/function-api;rev=2" -Body @{
+    properties = @{
+        displayName            = "function-api"
+        path                   = "function"
+        serviceUrl             = $functionBackendUrl
+        protocols              = @("https")
+        subscriptionRequired   = $true
+        apiRevisionDescription = "Added x-api-revision and x-request-timestamp outbound headers"
+        format                 = "openapi+json"
+        value                  = $functionSpec
+    }
+}
+
+# Apply rev2 policy
+Put-ApimResource -Path "apis/function-api;rev=2/policies/policy" -Body @{ properties = @{ value = $functionRev2Policy; format = "rawxml" } }
 
 # ─── App Insights Diagnostics (REST API) ─────────────────────────────────────
 Write-Host "Configuring APIM diagnostics to Application Insights..."

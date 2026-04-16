@@ -34,6 +34,12 @@
   </backend>
   <outbound>
     <base />
+    <set-header name="x-api-revision" exists-action="override">
+      <value>2</value>
+    </set-header>
+    <set-header name="x-request-timestamp" exists-action="override">
+      <value>@(DateTime.UtcNow.ToString("o"))</value>
+    </set-header>
   </outbound>
   <on-error>
     <base />

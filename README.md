@@ -336,6 +336,7 @@ This writes generated values to `scripts/.generated.env`.
 - **Function API** (`/function/*`)
   - `GET /function/hello` — Hello message with timestamp
   - `GET /function/orders` — Sample orders array
+  - `GET /function;rev=2/hello` — Revision 2: same response + `x-api-revision` and `x-request-timestamp` outbound headers
 
 - **Web API** — versioned using Segment versioning (v1/v2 are versions of the same API)
   - `GET /web/v1/hello` — Hello message
@@ -367,6 +368,21 @@ This writes generated values to `scripts/.generated.env`.
 - **Legacy API** (`/legacy/*`) — requires VM to be running
   - `GET /legacy/customers` — Sample customer list
   - `GET /legacy/status` — Service status
+
+### Revisions vs Versions
+
+This demo illustrates both APIM lifecycle strategies:
+
+| Concept | Type | Example | How to Test |
+|---|---|---|---|
+| **Version** | Breaking change — new URL path | `/web/v1/products` vs `/web/v2/products` (different response schema) | Different API paths |
+| **Revision** | Non-breaking change — same URL | Function API rev 1 vs rev 2 (rev 2 adds outbound headers) | Use `;rev=2` in API path (e.g. `/function;rev=2/hello`) |
+
+**Revision 2 of Function API** adds two outbound headers without changing the response body:
+- `x-api-revision: 2` — identifies which revision served the request
+- `x-request-timestamp` — UTC timestamp of when the request was processed
+
+Once validated, revision 2 can be promoted to current so all callers get the new headers without any URL change.
 
 ## Security model
 
