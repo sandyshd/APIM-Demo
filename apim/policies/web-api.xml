@@ -29,6 +29,7 @@
         <rewrite-uri template="/products" />
       </when>
     </choose>
+    <authentication-managed-identity resource="{{aad-audience}}" />
     <rate-limit-by-key calls="90" renewal-period="60" counter-key="@(context.Subscription?.Key ?? context.Request.IpAddress)" />
   </inbound>
   <backend>

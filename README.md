@@ -7,7 +7,8 @@ This repo provides a complete demo that can be set up in under 2 hours and demon
 3. OAuth2 client credentials with Microsoft Entra ID
 4. APIM policies: rate limiting, validate-jwt, claims authZ, CORS, headers, rewrite, backend routing, error handling
 5. APIM lifecycle: revisions (non-breaking) and versions (breaking)
-6. Hybrid backend integration with an on-prem simulation (VM-hosted API)
+6. Backend protection: restricting direct access to Web API — only APIM can call the backend
+7. Hybrid backend integration with an on-prem simulation (VM-hosted API)
 
 ---
 
@@ -53,7 +54,7 @@ graph TB
 
     subgraph "Backend Services"
         FUNC_APP["⚡ Azure Function App<br/>.NET 8 Isolated Worker<br/>Endpoints: /api/hello, /api/orders"]
-        WEB_APP["🌐 Azure App Service<br/>ASP.NET Core Minimal API<br/>Endpoints: /hello, /products,<br/>/v2/products, /admin/health"]
+        WEB_APP["🌐 Azure App Service<br/>ASP.NET Core Minimal API<br/>🔒 Direct access blocked<br/>Endpoints: /hello, /products,<br/>/v2/products, /admin/health"]
         VM["🖥️ Azure VM (On-Prem Sim)<br/>Kestrel on port 5000<br/>Endpoints: /legacy/customers,<br/>/legacy/status"]
     end
 
@@ -192,7 +193,7 @@ graph TD
 
     subgraph "What Each API Policy Does"
         D1["function-api.xml<br/>• CORS<br/>• validate-jwt (v1 OpenID config)<br/>• Caller identity headers (oid, roles)<br/>• rate-limit-by-key (90/60s)"]
-        D2["web-api.xml<br/>• CORS<br/>• validate-jwt (v1 OpenID config)<br/>• Caller identity headers (oid, roles)<br/>• URL rewrite (/items → /products)<br/>• rate-limit-by-key (90/60s)<br/>• set-backend-service (named value)"]
+        D2["web-api.xml<br/>• CORS<br/>• validate-jwt (v1 OpenID config)<br/>• Caller identity headers (oid, roles)<br/>• Managed identity auth to backend<br/>• URL rewrite (/items → /products)<br/>• rate-limit-by-key (90/60s)<br/>• set-backend-service (named value)"]
         D3["web-api-admin-operation.xml<br/>• Check JWT for Admin role<br/>• Return 403 if role missing<br/>• Add x-apim-admin-check header"]
     end
 
@@ -212,7 +213,7 @@ graph TD
 |---|---|---|
 | `global.xml` | All APIs | Error handling — returns `context.LastError.Message` and `Reason` |
 | `function-api.xml` | `/function/*` | CORS, JWT validation, caller claim headers, rate limiting |
-| `web-api.xml` | `/web/v1/*` and `/web/v2/*` | CORS, JWT validation, URL rewrite, rate limiting, backend routing via named value |
+| `web-api.xml` | `/web/v1/*` and `/web/v2/*` | CORS, JWT validation, managed identity auth to backend, URL rewrite, rate limiting, backend routing via named value |
 | `legacy-api.xml` | `/legacy/*` | JWT validation, throttling, backend routing to VM |
 | `web-api-admin-operation.xml` | `GET /admin/health` only | Checks `Admin` role in JWT, returns 403 if missing |
 
@@ -450,13 +451,57 @@ Policy files are in `apim/policies/`. See the [Policy Hierarchy](#apim-policy-hi
 |---|---|---|
 | `global.xml` | All APIs | Error handling — surfaces `LastError.Message` and `Reason` |
 | `function-api.xml` | Function API | CORS, JWT validation, caller identity headers, rate limiting |
-| `web-api.xml` | Web API v1 & v2 | CORS, JWT validation, URL rewrite (`/items` → `/products`), rate limiting, backend routing |
+| `web-api.xml` | Web API v1 & v2 | CORS, JWT validation, managed identity auth (`authentication-managed-identity`), URL rewrite (`/items` → `/products`), rate limiting, backend routing |
 | `legacy-api.xml` | Legacy API | JWT validation, throttling, backend routing to VM |
 | `web-api-admin-operation.xml` | `GET /admin/health` | Operation-level Admin role check — returns 403 if missing |
+| `function-api-rev2.xml` | Function API rev 2 | Same as rev 1 + outbound `x-api-revision` and `x-request-timestamp` headers |
+
+## Backend Protection (Web API)
+
+The Web API backend is protected so that only requests routed through APIM are accepted. Direct calls to the App Service URL are rejected with `401 Unauthorized`.
+
+**How it works (Entra ID Managed Identity):**
+
+1. **APIM managed identity** (system-assigned) authenticates to the Web API's Entra ID app registration using `<authentication-managed-identity resource="{{aad-audience}}" />`
+2. APIM acquires a JWT token as its managed identity and forwards it in the `Authorization` header to the backend
+3. **Web API** uses `Microsoft.Identity.Web` to validate the JWT bearer token:
+   - Validates issuer, audience, and token signature via Entra ID metadata
+   - Checks the token's `oid` claim matches the APIM managed identity object ID (stored in `ApimManagedIdentityObjectId` app setting)
+4. Direct calls without a valid managed identity token are rejected with `401`
+5. App Service warmup probes (`/` and `/robots933456.txt`) are excluded from authentication
+
+**Why this is better than a shared secret:**
+
+| | Shared Secret | Managed Identity (current) |
+|---|---|---|
+| Secret rotation | Manual | Automatic (Entra ID handles it) |
+| Credentials stored | App settings + APIM named value | None — no secrets to manage |
+| Audit trail | None | Entra ID sign-in logs |
+| Zero-trust | No | Yes |
+| Standard | Custom header | OAuth 2.0 / OpenID Connect |
+
+**Access matrix (direct vs APIM):**
+
+| Request Path | Direct to App Service | Through APIM (with token + key) |
+|---|---|---|
+| `GET /products` | ❌ 401 | ✅ 200 |
+| `GET /admin/health` | ❌ 401 | ✅ 200 (Admin) / 403 (Reader) |
+
+> **Note:** The `03-deploy-webapi.ps1` script automatically reads the APIM managed identity object ID and configures the Web API app settings. If APIM is reprovisioned, re-run `03-deploy-webapi.ps1` to update the object ID.
 
 ## Key Vault + APIM Named Values
 
 Script `06-configure-apim.ps1` creates named values and includes a Key Vault referenced named value (`kv-admin-client-secret`) using APIM Managed Identity.
+
+Named values created:
+
+| Named Value | Type | Purpose |
+|---|---|---|
+| `aad-tenant-id` | Plain text | Entra ID tenant for JWT validation |
+| `aad-audience` | Plain text | API audience URI |
+| `web-backend-url` | Plain text | Web API App Service URL |
+| `legacy-backend-url` | Plain text | VM backend URL |
+| `kv-admin-client-secret` | Key Vault ref | Admin client secret from Key Vault |
 
 Fallback (demo-only): if KV integration is blocked, store non-secret values via normal named values and keep secrets only in local env while testing.
 
@@ -475,6 +520,8 @@ Use `./scripts/07-test-calls.ps1`, `test/api-tests.http` (REST Client extension)
 | 7 | Admin token → `GET /web/v1/admin/health` | `200` (Admin role present) |
 | 8 | **User token** → `GET /web/v1/admin/health` | **`403`** (no Admin role) |
 | 9 | Admin token → `GET /legacy/customers` | `200` (if VM running) or `502` |
+| 10 | Direct call to Web API backend (no APIM) | `401` (blocked by shared secret middleware) |
+| 11 | APIM call to Web API (shared secret injected) | `200` (secret validated, request forwarded) |
 
 ### Testing with REST Client (Recommended)
 
@@ -579,15 +626,16 @@ requests
 4. **Policy walkthrough** — open policy editor, show the hierarchy: Global → API → Operation
 5. **Live API testing** — open `test/api-tests.http` and run in order:
    - Get admin + user tokens
-   - Direct backend calls (no APIM) — prove backends work
+   - Direct backend calls (no APIM) — Function API works directly, **Web API returns 401** (protected)
    - Function API through APIM — show JWT validation + identity headers
    - Web API v1 then v2 — show API versioning (Segment scheme)
    - Admin endpoint with admin token (200) then user token (403) — show RBAC
    - Error cases — missing key (401), missing token (401)
-6. **Revision workflow** — create revision 2, test with `;rev=2`, promote to current
-7. **Version comparison** — compare v1 vs v2 product payload schemas
-8. **Observability** — show Application Insights logs, correlate with `x-correlation-id`
-9. **Enterprise discussion** — cover private connectivity options (VNet, self-hosted gateway, VPN/ExpressRoute)
+6. **Backend protection demo** — show direct call to Web API returns 401, then same call through APIM returns 200. Explain shared secret trust pattern.
+7. **Revision workflow** — create revision 2, test with `;rev=2`, promote to current
+8. **Version comparison** — compare v1 vs v2 product payload schemas
+9. **Observability** — show Application Insights logs, correlate with `x-correlation-id`
+10. **Enterprise discussion** — cover private connectivity options (VNet, self-hosted gateway, VPN/ExpressRoute)
 
 ## Troubleshooting
 
