@@ -70,6 +70,8 @@ sudo systemctl enable legacyapi
 sudo systemctl restart legacyapi
 sudo systemctl status legacyapi --no-pager
 "@ | Set-Content -Path $setupScript -NoNewline -Encoding utf8NoBOM
+# Convert CRLF to LF for Linux
+(Get-Content $setupScript -Raw) -replace "`r`n", "`n" | Set-Content -Path $setupScript -NoNewline -Encoding utf8NoBOM
 
 Write-Host "Uploading setup script to VM..."
 $scpSetup = $target + ":/tmp/setup-legacy.sh"

@@ -2,7 +2,7 @@
   <inbound>
     <base />
     <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized">
-      <openid-config url="https://login.microsoftonline.com/{{aad-tenant-id}}/v2.0/.well-known/openid-configuration" />
+      <openid-config url="https://login.microsoftonline.com/{{aad-tenant-id}}/.well-known/openid-configuration" />
       <audiences>
         <audience>{{aad-audience}}</audience>
       </audiences>
